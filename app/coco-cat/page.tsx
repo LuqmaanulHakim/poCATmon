@@ -6,38 +6,24 @@ import Image from "next/image";
 type Status = "idle" | "loading" | "done" | "error";
 
 export default function Page() {
-  const [status, setStatus] =
-    useState<Status>("idle");
+  const [status, setStatus] = useState<Status>("idle");
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [result, setResult] =
-    useState<string | null>(null);
-
-  const [error, setError] =
-    useState<string | null>(null);
-
-  async function detectCat(
-    imageElement: HTMLImageElement
-  ) {
-    const cocoSsd = await import(
-      "@tensorflow-models/coco-ssd"
-    );
-
-    const tf = await import(
-      "@tensorflow/tfjs"
-    );
+  // =========================
+  // CAT DETECTION (COCO-SSD)
+  // =========================
+  async function detectCat(imageElement: HTMLImageElement) {
+    const cocoSsd = await import("@tensorflow-models/coco-ssd");
+    const tf = await import("@tensorflow/tfjs");
 
     await tf.ready();
 
-    const model =
-      await cocoSsd.load();
-
-    const predictions =
-      await model.detect(imageElement);
+    const model = await cocoSsd.load();
+    const predictions = await model.detect(imageElement);
 
     const cat = predictions.find(
-      (p) =>
-        p.class === "cat" &&
-        p.score > 0.5
+      (p) => p.class === "cat" && p.score > 0.5
     );
 
     if (!cat) return null;
@@ -45,127 +31,188 @@ export default function Page() {
     return cat.bbox; // [x, y, width, height]
   }
 
-  function cropToSubject(
-    img: HTMLImageElement,
-    bbox: number[]
-  ): string {
-    const [x, y, w, h] = bbox;
+  // =========================
+  // STICKER CREATION
+  // =========================
+  function createSticker(img: HTMLImageElement): string {
+  const padding = 60;
+  const outlineSize = 10;
 
-    const canvas =
-      document.createElement("canvas");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d")!;
 
-    const ctx =
-      canvas.getContext("2d")!;
+  canvas.width = img.width + padding * 2;
+  canvas.height = img.height + padding * 2;
 
-    const padding = 30; // sticker space
+  const x = padding;
+  const y = padding;
 
-    canvas.width = w + padding * 2;
-    canvas.height = h + padding * 2;
+  // STEP 1: draw image offscreen to get pixel data
+  const offCanvas = document.createElement("canvas");
+  offCanvas.width = img.width;
+  offCanvas.height = img.height;
 
-    ctx.drawImage(
-      img,
-      x - padding,
-      y - padding,
-      w + padding * 2,
-      h + padding * 2,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+  const offCtx = offCanvas.getContext("2d")!;
+  offCtx.drawImage(img, 0, 0);
 
-    return canvas.toDataURL("image/png");
+  const imgData = offCtx.getImageData(
+    0,
+    0,
+    img.width,
+    img.height
+  );
+
+  const data = imgData.data;
+
+  // STEP 2: create white outline mask
+  const outlineCanvas = document.createElement("canvas");
+  outlineCanvas.width = img.width;
+  outlineCanvas.height = img.height;
+
+  const octx = outlineCanvas.getContext("2d")!;
+  const outlineData = octx.createImageData(img.width, img.height);
+
+  const out = outlineData.data;
+
+  // simple dilation (expand alpha pixels)
+  for (let y1 = 0; y1 < img.height; y1++) {
+    for (let x1 = 0; x1 < img.width; x1++) {
+      const i = (y1 * img.width + x1) * 4;
+
+      const alpha = data[i + 3];
+
+      if (alpha > 10) {
+        // draw white pixel around it (outline effect)
+        for (let dy = -outlineSize; dy <= outlineSize; dy++) {
+          for (let dx = -outlineSize; dx <= outlineSize; dx++) {
+            const nx = x1 + dx;
+            const ny = y1 + dy;
+
+            if (
+              nx >= 0 &&
+              ny >= 0 &&
+              nx < img.width &&
+              ny < img.height
+            ) {
+              const ni = (ny * img.width + nx) * 4;
+
+              out[ni] = 255;
+              out[ni + 1] = 255;
+              out[ni + 2] = 255;
+              out[ni + 3] = 255;
+            }
+          }
+        }
+      }
+    }
   }
 
+  octx.putImageData(outlineData, 0, 0);
+
+  // STEP 3: draw white outline
+  ctx.drawImage(outlineCanvas, x, y);
+
+  // STEP 4: draw original image on top
+  ctx.drawImage(img, x, y);
+
+  return canvas.toDataURL("image/png");
+}
+
+  // rounded rectangle helper
+  function roundRect(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    r: number
+  ) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // =========================
+  // RESET
+  // =========================
   function resetToUpload() {
     setStatus("idle");
     setResult(null);
     setError(null);
   }
 
+  // =========================
+  // UPLOAD + PROCESS FLOW
+  // =========================
   async function handleUpload(
     e: React.ChangeEvent<HTMLInputElement>
   ) {
-    const file =
-      e.target.files?.[0];
-
+    const file = e.target.files?.[0];
     if (!file) return;
 
     setError(null);
     setResult(null);
-
-    // STEP 1: loading
     setStatus("loading");
 
-    const url =
-      URL.createObjectURL(file);
+    const url = URL.createObjectURL(file);
 
     const img = new window.Image();
     img.src = url;
 
     img.onload = async () => {
       try {
-        // STEP 2: detect cat + bbox
-        const bbox =
-          await detectCat(img);
+        // STEP 1: detect cat
+        const bbox = await detectCat(img);
 
         if (!bbox) {
           setStatus("error");
-          setError(
-            "Only cat images are allowed 🐱"
-          );
+          setError("Only cat images are allowed 🐱");
           return;
         }
 
-        // STEP 3: remove background
-        const {
-          removeBackground,
-        } = await import(
+        // STEP 2: remove background
+        const { removeBackground } = await import(
           "@imgly/background-removal"
         );
 
-        const blob =
-          await removeBackground(
-            file,
-            {
-              device: "cpu",
-            }
-          );
+        const blob = await removeBackground(file, {
+          device: "cpu",
+        });
 
-        const output =
-          URL.createObjectURL(blob);
+        const outputUrl = URL.createObjectURL(blob);
 
-        // convert to image for cropping
         const tempImg = new window.Image();
-        tempImg.src = output;
+        tempImg.src = outputUrl;
 
         tempImg.onload = () => {
-          // STEP 4: crop + center subject
-          const cropped =
-            cropToSubject(
-              tempImg,
-              bbox
-            );
+          // STEP 3: create sticker
+          const sticker = createSticker(tempImg);
 
-          setResult(cropped);
+          setResult(sticker);
           setStatus("done");
         };
       } catch (err) {
         console.error(err);
-
         setStatus("error");
         setError("Processing failed");
       }
     };
   }
 
+  // =========================
+  // UI
+  // =========================
   return (
     <main className="p-6 max-w-5xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">
         Catch that CAT!
       </h1>
 
-      {/* STEP 1: UPLOAD ONLY */}
+      {/* UPLOAD */}
       {status === "idle" && (
         <input
           type="file"
@@ -175,7 +222,7 @@ export default function Page() {
         />
       )}
 
-      {/* STEP 2: LOADING ONLY */}
+      {/* LOADING */}
       {status === "loading" && (
         <div className="flex flex-col items-center gap-3 mt-10">
           <Image
@@ -189,7 +236,7 @@ export default function Page() {
         </div>
       )}
 
-      {/* STEP 3: ERROR ONLY */}
+      {/* ERROR */}
       {status === "error" && error && (
         <div className="mt-5 flex flex-col items-center gap-4">
           <p className="text-red-500 text-center">
@@ -200,26 +247,28 @@ export default function Page() {
             onClick={resetToUpload}
             className="px-5 py-2 bg-black text-white rounded-lg"
           >
-            OK
+            Try Again
           </button>
         </div>
       )}
 
-      {/* STEP 4: RESULT ONLY */}
+      {/* RESULT */}
       {status === "done" && result && (
         <div className="mt-6 flex flex-col items-center">
           <img
             src={result}
-            className="rounded-xl border w-64"
+            className="w-64"
+            alt="sticker result"
           />
 
           <div className="flex gap-3 mt-4">
-            <button
-              onClick={resetToUpload}
+            <a
+              href={result}
+              download="cat-sticker.png"
               className="px-4 py-2 bg-green-600 text-white rounded-lg"
             >
-              Save
-            </button>
+              Download
+            </a>
 
             <button
               onClick={resetToUpload}
