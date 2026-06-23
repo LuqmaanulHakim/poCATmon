@@ -36,7 +36,7 @@ export default function Page() {
   // =========================
   function createSticker(img: HTMLImageElement): string {
   const padding = 60;
-  const outlineSize = 10;
+  const outlineSize = 0.5;
 
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
