@@ -34,11 +34,47 @@ export default function Page() {
     const predictions =
       await model.detect(imageElement);
 
-    return predictions.some(
+    const cat = predictions.find(
       (p) =>
         p.class === "cat" &&
         p.score > 0.5
     );
+
+    if (!cat) return null;
+
+    return cat.bbox; // [x, y, width, height]
+  }
+
+  function cropToSubject(
+    img: HTMLImageElement,
+    bbox: number[]
+  ): string {
+    const [x, y, w, h] = bbox;
+
+    const canvas =
+      document.createElement("canvas");
+
+    const ctx =
+      canvas.getContext("2d")!;
+
+    const padding = 30; // sticker space
+
+    canvas.width = w + padding * 2;
+    canvas.height = h + padding * 2;
+
+    ctx.drawImage(
+      img,
+      x - padding,
+      y - padding,
+      w + padding * 2,
+      h + padding * 2,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    return canvas.toDataURL("image/png");
   }
 
   function resetToUpload() {
@@ -58,7 +94,7 @@ export default function Page() {
     setError(null);
     setResult(null);
 
-    // STEP 1: go loading immediately
+    // STEP 1: loading
     setStatus("loading");
 
     const url =
@@ -69,11 +105,11 @@ export default function Page() {
 
     img.onload = async () => {
       try {
-        // STEP 2: detect cat
-        const isCat =
+        // STEP 2: detect cat + bbox
+        const bbox =
           await detectCat(img);
 
-        if (!isCat) {
+        if (!bbox) {
           setStatus("error");
           setError(
             "Only cat images are allowed 🐱"
@@ -99,10 +135,21 @@ export default function Page() {
         const output =
           URL.createObjectURL(blob);
 
-        setResult(output);
+        // convert to image for cropping
+        const tempImg = new window.Image();
+        tempImg.src = output;
 
-        // STEP 4: done
-        setStatus("done");
+        tempImg.onload = () => {
+          // STEP 4: crop + center subject
+          const cropped =
+            cropToSubject(
+              tempImg,
+              bbox
+            );
+
+          setResult(cropped);
+          setStatus("done");
+        };
       } catch (err) {
         console.error(err);
 
@@ -160,14 +207,13 @@ export default function Page() {
 
       {/* STEP 4: RESULT ONLY */}
       {status === "done" && result && (
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col items-center">
           <img
             src={result}
             className="rounded-xl border w-64"
           />
 
           <div className="flex gap-3 mt-4">
-            {/* SAVE (not functional yet) */}
             <button
               onClick={resetToUpload}
               className="px-4 py-2 bg-green-600 text-white rounded-lg"
@@ -175,7 +221,6 @@ export default function Page() {
               Save
             </button>
 
-            {/* CANCEL */}
             <button
               onClick={resetToUpload}
               className="px-4 py-2 bg-red-600 text-white rounded-lg"
