@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.2.0",
     "@mediapipe/selfie_segmentation": "^0.1.1675465747",
     "@teachablemachine/image": "^0.8.5",
     "@tensorflow-models/body-segmentation": "^1.0.2",

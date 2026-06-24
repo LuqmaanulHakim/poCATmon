@@ -10,7 +10,7 @@ const withPWA = require("next-pwa")({
 });
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  turbopack: {}, // silences the warning; transformers.js works without extra config
 };
 
-export default nextConfig;
+export default withPWA(nextConfig);
