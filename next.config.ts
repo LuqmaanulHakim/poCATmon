@@ -9,8 +9,10 @@ const withPWA = require("next-pwa")({
   disable: isDev,
 });
 
-const nextConfig: NextConfig = {
-  turbopack: {}, // silences the warning; transformers.js works without extra config
+const nextConfig = {
+  allowedDevOrigins: ["10.23.7.47"],
+  turbopack: {},
 };
+
 
 export default withPWA(nextConfig);

@@ -1,26 +1,45 @@
 @import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fdf6ee;
+  --foreground: #3d1f0f;
+  --nav-bg-solid: #fdf6ee;
+  --card-border: rgba(61, 31, 15, 0.12);
+  --accent: #c8956c;
+  --muted: rgba(61, 31, 15, 0.45);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html.dark {
+  --background: #1e0e06;
+  --foreground: #fdf6ee;
+  --nav-bg-solid: #1e0e06;
+  --card-border: rgba(253, 246, 238, 0.12);
+  --accent: #d4a57a;
+  --muted: rgba(253, 246, 238, 0.45);
 }
 
 body {
+  margin: 0;
+  padding: 0;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-bottom);
+  background: var(--nav-bg-solid);
+  z-index: 49;
 }
