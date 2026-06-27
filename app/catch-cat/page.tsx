@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { predictImage } from "../lib/teachable";
+import { useRouter } from "next/navigation";
 
 type Status = "idle" | "checking" | "processing" | "done" | "not-cat" | "error";
 
@@ -20,6 +21,7 @@ export default function Page() {
   const [result, setResult] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   // Bumped on every new upload AND every reset. Any async callback
   // started under an earlier id is stale and must not touch state.
@@ -196,6 +198,13 @@ export default function Page() {
             )}
           </div>
         )}
+
+        <button
+  className="btn btn-ghost"
+  onClick={() => router.push("/snap-cat")}
+>
+  Open Snap Cat 📸
+</button>
 
         {/* DONE — the catch card */}
         {status === "done" && result && (
