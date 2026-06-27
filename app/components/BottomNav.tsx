@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   IconSettings, IconSettingsFilled,
   IconHome, IconHomeFilled,
@@ -26,18 +27,35 @@ const tabs = [
   },
 ];
 
+function useIsPWA() {
+  const [isPWA, setIsPWA] = useState(false);
+
+  useEffect(() => {
+    const check = () =>
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true; // iOS Safari
+
+    setIsPWA(check());
+  }, []);
+
+  return isPWA;
+}
+
 export default function BottomNav() {
   const pathname = usePathname();
+  const isPWA = useIsPWA();
+
+  if (!isPWA) return null;
 
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 border-t"
       style={{
-        backgroundColor: "var(--nav-bg-solid)",  // fully opaque, no rgba
+        backgroundColor: "var(--nav-bg-solid)",
         borderColor: "var(--card-border)",
         willChange: "transform",
         WebkitTransform: "translateZ(0)",
-    }}
+      }}
     >
       <div className="max-w-md mx-auto flex">
         {tabs.map((tab) => {
