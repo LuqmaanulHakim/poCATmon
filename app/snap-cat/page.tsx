@@ -14,6 +14,7 @@ export default function SnapCatPage() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [checkStatus, setCheckStatus] = useState<CheckStatus>("idle");
   const [confidence, setConfidence] = useState<number | null>(null);
+  const [imageSize, setImageSize] = useState<string | null>(null);
 
   const startCamera = async () => {
     try {
@@ -64,6 +65,15 @@ export default function SnapCatPage() {
 
     const imageData = canvas.toDataURL("image/png");
     setPhoto(imageData);
+
+    const base64Data = imageData.split(",")[1];
+
+    const bytes = atob(base64Data).length;
+    const kb = bytes / 1024;
+    const mb = kb / 1024;
+
+    setImageSize( mb>= 1 ? `${mb.toFixed(2)} MB` : `${kb.toFixed(2)} KB`);
+
     setCheckStatus("idle");
     setConfidence(null);
 
@@ -107,15 +117,18 @@ export default function SnapCatPage() {
     setPhoto(null);
     setCheckStatus("idle");
     setConfidence(null);
+
+    setImageSize(null);
+
     startCamera();
   };
 
   const statusLabel: Record<CheckStatus, string> = {
     idle: "Tap Check for cat to scan",
     checking: "Scanning...",
-    cat: "🐱 Cat detected!",
-    "not-cat": "🙅 No cat found",
-    error: "⚠️ Scan failed",
+    cat: "Cat detected!",
+    "not-cat": "No cat found",
+    error: "Scan failed",
   };
 
   return (
@@ -165,6 +178,12 @@ export default function SnapCatPage() {
             {statusLabel[checkStatus]}
           </p>
 
+          {imageSize && (
+            <div className="rounded-full bg-gray-800 px-4 py-1 text-xs">
+              Storage: {imageSize}
+            </div>
+          )}
+
           {checkStatus === "cat" && confidence !== null && (
             <p className="text-xs text-gray-400">
               {Math.round(confidence * 100)}% confidence
@@ -177,7 +196,7 @@ export default function SnapCatPage() {
               disabled={checkStatus === "checking"}
               className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-full font-semibold transition-colors"
             >
-              {checkStatus === "checking" ? "Scanning..." : "Check for cat 🐾"}
+              {checkStatus === "checking" ? "Scanning..." : "Check for cat"}
             </button>
 
             <button
@@ -197,7 +216,7 @@ export default function SnapCatPage() {
           disabled={!streaming}
           className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-full font-semibold transition-colors"
         >
-          Snap 📸
+          Snap
         </button>
       )}
 
