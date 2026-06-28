@@ -14,11 +14,12 @@ export default function Toolbar() {
       }}
     >
       {/* App name */}
-      <span
-        className="text-[13px] font-semibold tracking-wide select-none"
-        style={{ color: "var(--foreground)" }}
-      >
-        PoCATmon
+      <span className="text-[13px] font-semibold tracking-wide select-none flex items-center gap-0.5">
+        <span style={{ color: "var(--accent)" }}>PO</span>
+        <span style={{ color: "var(--muted)" }}>-</span>
+        <span style={{ color: "var(--foreground)" }}>CAT</span>
+        <span style={{ color: "var(--muted)" }}>-</span>
+        <span style={{ color: "var(--accent)" }}>MON</span>
       </span>
 
       {/* Segmented toggle */}
@@ -27,9 +28,9 @@ export default function Toolbar() {
         style={{ background: "var(--card-border)" }}
       >
         {[
-          { label: "Light", icon: "☀️", value: false },
-          { label: "Dark",  icon: "🌙", value: true  },
-        ].map(({ label, icon, value }) => {
+          { label: "Light", value: false },
+          { label: "Dark", value: true },
+        ].map(({ label, value }) => {
           const active = darkMode === value;
           return (
             <button
@@ -44,7 +45,6 @@ export default function Toolbar() {
                 boxShadow: active ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
               }}
             >
-              <span>{icon}</span>
               {label}
             </button>
           );
