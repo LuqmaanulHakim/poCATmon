@@ -257,7 +257,7 @@ export default function SnapCatPage() {
 
         {/* ── Viewfinder ── */}
         <div style={{
-          position: "relative", width: "100%", maxWidth: 340, aspectRatio: "3 / 4",
+          position: "relative", width: "100%", maxWidth: 360, aspectRatio: "1 / 1",
           background: "color-mix(in srgb, var(--background) 60%, var(--foreground) 4%)",
           borderRadius: 4,
           border: "1px solid var(--card-border)",
