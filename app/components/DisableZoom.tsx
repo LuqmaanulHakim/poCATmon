@@ -4,23 +4,24 @@ import { useEffect } from "react";
 
 export default function DisableZoom() {
   useEffect(() => {
-    const preventDoubleTapZoom = (e: TouchEvent) => {
-      if (e.touches.length > 1) return;
+    const preventPinchZoom = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
     };
 
     const preventCtrlZoom = (e: WheelEvent) => {
       if (e.ctrlKey) e.preventDefault();
     };
 
+    document.addEventListener("touchstart", preventPinchZoom, { passive: false });
+    document.addEventListener("touchmove", preventPinchZoom, { passive: false }); // belt-and-suspenders for sustained pinch
     document.addEventListener("wheel", preventCtrlZoom, { passive: false });
 
-    document.addEventListener("touchstart", preventDoubleTapZoom, {
-      passive: true,
-    });
-
     return () => {
+      document.removeEventListener("touchstart", preventPinchZoom);
+      document.removeEventListener("touchmove", preventPinchZoom);
       document.removeEventListener("wheel", preventCtrlZoom);
-      document.removeEventListener("touchstart", preventDoubleTapZoom);
     };
   }, []);
 
