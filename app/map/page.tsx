@@ -19,7 +19,7 @@ export default function MapPage() {
   const [gpsEnabled, setGpsEnabled] = useState(false);
 
   const [viewState, setViewState] = useState({
-    latitude: 4.4500,
+    latitude: 2.8000,
     longitude: 102.3500,
     zoom: 6,
   });
