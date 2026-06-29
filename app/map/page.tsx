@@ -19,9 +19,9 @@ export default function MapPage() {
   const [gpsEnabled, setGpsEnabled] = useState(false);
 
   const [viewState, setViewState] = useState({
-    latitude: 3.139,
-    longitude: 102.6869,
-    zoom: 7,
+    latitude: 4.4500,
+    longitude: 102.3500,
+    zoom: 6,
   });
 
   const [userLocation, setUserLocation] = useState<{
