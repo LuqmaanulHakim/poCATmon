@@ -6,7 +6,7 @@ import {
   IconShield, IconArrowRight, IconCircleCheckFilled, IconCircleCheck, IconDownload, IconLock,
 } from "@tabler/icons-react";
 import { motion, useInView } from "motion/react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 
 // ── PWA detection & redirect ───────────────────────────────────────────────
 function usePwaRedirect() {
