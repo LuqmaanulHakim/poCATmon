@@ -39,11 +39,14 @@ export default function MapPage() {
 
     setLocationError(null);
 
-    const id = navigator.geolocation.watchPosition(
+    navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
 
-        setUserLocation({ latitude, longitude });
+        setUserLocation({
+          latitude,
+          longitude,
+        });
 
         setViewState((prev) => ({
           ...prev,
@@ -51,18 +54,21 @@ export default function MapPage() {
           longitude,
           zoom: 15,
         }));
+
+        // Auto turn OFF after getting location once
+        setGpsEnabled(false);
       },
       (error) => {
         console.error(error);
         setLocationError("Unable to retrieve location");
+        setGpsEnabled(false);
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 1000,
+        timeout: 10000,
       }
     );
 
-    watchIdRef.current = id;
     setGpsEnabled(true);
   };
 
