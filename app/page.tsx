@@ -403,6 +403,7 @@ export default function App() {
           <span>© 2026 · Mapping cats, one photo at a time</span>
         </div>
       </footer>
+       <div className="h-8" />
     </div>
   );
 }

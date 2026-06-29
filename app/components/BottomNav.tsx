@@ -7,13 +7,14 @@ import {
   IconSettings, IconSettingsFilled,
   IconHome, IconHomeFilled,
   IconCurrentLocation, IconCurrentLocationFilled,
+  IconCamera
 } from "@tabler/icons-react";
 
 const tabs = [
   {
     href: "/snap-cat",
     label: "Snap",
-    icon: (active: boolean) => active ? <IconHomeFilled size={24} /> : <IconHome size={24} />,
+    icon: (active: boolean) => active ? <IconCamera size={24} /> : <IconHome size={24} />,
   },
   {
     href: "/map",
