@@ -11,8 +11,8 @@ import {
 
 const tabs = [
   {
-    href: "/",
-    label: "Utama",
+    href: "/snap-cat",
+    label: "Snap",
     icon: (active: boolean) => active ? <IconHomeFilled size={24} /> : <IconHome size={24} />,
   },
   {
