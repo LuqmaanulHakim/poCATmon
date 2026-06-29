@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Map, { Marker } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useTheme } from "../context/ThemeContext";
@@ -16,26 +16,24 @@ const STORAGE_KEY = "lastMapState";
 export default function MapPage() {
   const { darkMode } = useTheme();
 
-  const [gpsEnabled, setGpsEnabled] =
-    useState(false);
+  const mapRef = useRef<any>(null);
 
-  const [viewState, setViewState] =
-    useState({
-      latitude: 2.8,
-      longitude: 102.35,
-      zoom: 6,
-    });
+  const [gpsEnabled, setGpsEnabled] = useState(false);
 
-  const [userLocation, setUserLocation] =
-    useState<{
-      latitude: number;
-      longitude: number;
-    } | null>(null);
+  const [viewState, setViewState] = useState({
+    latitude: 2.8,
+    longitude: 102.35,
+    zoom: 6,
+  });
 
-  const [locationError, setLocationError] =
-    useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
-  // Save map state helper
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  // Save map state
   const saveMapState = (state: {
     latitude: number;
     longitude: number;
@@ -50,10 +48,9 @@ export default function MapPage() {
     );
   };
 
-  // Restore map state (NO marker)
+  // Restore map state with smooth flyTo
   useEffect(() => {
-    const saved =
-      localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(STORAGE_KEY);
 
     if (!saved) return;
 
@@ -65,11 +62,20 @@ export default function MapPage() {
         24 * 60 * 60 * 1000;
 
       if (expired) {
-        localStorage.removeItem(
-          STORAGE_KEY
-        );
+        localStorage.removeItem(STORAGE_KEY);
         return;
       }
+
+      // Smooth animation on load
+      setTimeout(() => {
+        mapRef.current?.flyTo({
+          center: [data.longitude, data.latitude],
+          zoom: data.zoom ?? 10,
+          speed: 1.2,
+          curve: 1.4,
+          essential: true,
+        });
+      }, 100);
 
       setViewState({
         latitude: data.latitude,
@@ -77,21 +83,17 @@ export default function MapPage() {
         zoom: data.zoom ?? 10,
       });
 
-      // IMPORTANT: do NOT restore marker
+      // DO NOT restore marker
       setUserLocation(null);
     } catch {
-      localStorage.removeItem(
-        STORAGE_KEY
-      );
+      localStorage.removeItem(STORAGE_KEY);
     }
   }, []);
 
-  // GPS ONCE
+  // GPS single fetch
   const startGPS = () => {
     if (!navigator.geolocation) {
-      setLocationError(
-        "Geolocation not supported"
-      );
+      setLocationError("Geolocation not supported");
       return;
     }
 
@@ -100,10 +102,7 @@ export default function MapPage() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const {
-          latitude,
-          longitude,
-        } = position.coords;
+        const { latitude, longitude } = position.coords;
 
         const newState = {
           latitude,
@@ -111,9 +110,15 @@ export default function MapPage() {
           zoom: 15,
         };
 
-        setUserLocation({
-          latitude,
-          longitude,
+        setUserLocation({ latitude, longitude });
+
+        // Smooth camera move
+        mapRef.current?.flyTo({
+          center: [longitude, latitude],
+          zoom: 15,
+          speed: 1.2,
+          curve: 1.4,
+          essential: true,
         });
 
         setViewState((prev) => ({
@@ -127,11 +132,7 @@ export default function MapPage() {
       },
       (error) => {
         console.error(error);
-
-        setLocationError(
-          "Unable to retrieve location"
-        );
-
+        setLocationError("Unable to retrieve location");
         setGpsEnabled(false);
       },
       {
@@ -148,37 +149,25 @@ export default function MapPage() {
   return (
     <div className="relative w-screen h-screen">
       <Map
+        ref={mapRef}
         {...viewState}
         onMove={(evt) => {
           setViewState(evt.viewState);
 
           saveMapState({
-            latitude:
-              evt.viewState.latitude,
-            longitude:
-              evt.viewState.longitude,
+            latitude: evt.viewState.latitude,
+            longitude: evt.viewState.longitude,
             zoom: evt.viewState.zoom,
           });
         }}
-        mapStyle={
-          darkMode
-            ? darkStyle
-            : lightStyle
-        }
-        style={{
-          width: "100%",
-          height: "100%",
-        }}
+        mapStyle={darkMode ? darkStyle : lightStyle}
+        style={{ width: "100%", height: "100%" }}
         attributionControl={false}
       >
         {userLocation && (
           <Marker
-            latitude={
-              userLocation.latitude
-            }
-            longitude={
-              userLocation.longitude
-            }
+            latitude={userLocation.latitude}
+            longitude={userLocation.longitude}
           >
             <div className="relative flex items-center justify-center">
               <span className="absolute inline-flex h-5 w-5 rounded-full bg-blue-400 opacity-60 animate-ping" />
@@ -188,7 +177,7 @@ export default function MapPage() {
         )}
       </Map>
 
-      {/* GPS Button (UNCHANGED DESIGN) */}
+      {/* GPS Button (unchanged design) */}
       <div className="absolute bottom-35 right-4 flex flex-col items-end gap-2">
         {locationError && (
           <div className="text-xs text-white bg-red-500 rounded-lg px-3 py-1.5 shadow max-w-48 text-right">
@@ -219,35 +208,11 @@ export default function MapPage() {
             stroke="currentColor"
             strokeWidth={2}
           >
-            <circle
-              cx="12"
-              cy="12"
-              r="4"
-            />
-            <line
-              x1="12"
-              y1="2"
-              x2="12"
-              y2="6"
-            />
-            <line
-              x1="12"
-              y1="18"
-              x2="12"
-              y2="22"
-            />
-            <line
-              x1="2"
-              y1="12"
-              x2="6"
-              y2="12"
-            />
-            <line
-              x1="18"
-              y1="12"
-              x2="22"
-              y2="12"
-            />
+            <circle cx="12" cy="12" r="4" />
+            <line x1="12" y1="2" x2="12" y2="6" />
+            <line x1="12" y1="18" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="6" y2="12" />
+            <line x1="18" y1="12" x2="22" y2="12" />
           </svg>
         </button>
       </div>
