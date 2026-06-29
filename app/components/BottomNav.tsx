@@ -5,16 +5,15 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   IconSettings, IconSettingsFilled,
-  IconHome, IconHomeFilled,
   IconCurrentLocation, IconCurrentLocationFilled,
-  IconCamera
+  IconPaw, IconPawFilled
 } from "@tabler/icons-react";
 
 const tabs = [
   {
     href: "/snap-cat",
     label: "Snap",
-    icon: (active: boolean) => active ? <IconCamera size={24} /> : <IconHome size={24} />,
+    icon: (active: boolean) => active ? <IconPawFilled size={24} /> : <IconPaw size={24} />,
   },
   {
     href: "/map",
