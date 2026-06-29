@@ -6,21 +6,19 @@ import {
   IconShield, IconArrowRight, IconCircleCheckFilled, IconCircleCheck, IconDownload, IconLock,
 } from "@tabler/icons-react";
 import { motion, useInView } from "motion/react";
-import { useRouter } from "next/navigation";
 
 // ── PWA detection & redirect ───────────────────────────────────────────────
 function usePwaRedirect() {
-  const router = useRouter();
-
   useEffect(() => {
     const isStandalone =
       window.matchMedia("(display-mode: standalone)").matches ||
+      // iOS Safari
       (navigator as any).standalone === true;
 
     if (isStandalone) {
-      router.replace("/map");
+      window.location.replace("/map");
     }
-  }, [router]);
+  }, []);
 }
 
 // ── Fade-in on scroll helper ───────────────────────────────────────────────

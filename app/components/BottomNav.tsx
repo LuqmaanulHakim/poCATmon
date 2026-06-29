@@ -17,12 +17,12 @@ const tabs = [
   },
   {
     href: "/map",
-    label: "Dekat Saya",
+    label: "Near me",
     icon: (active: boolean) => active ? <IconCurrentLocationFilled size={24} /> : <IconCurrentLocation size={24} />,
   },
   {
     href: "/catch-cat",
-    label: "Tetapan",
+    label: "Setting",
     icon: (active: boolean) => active ? <IconSettingsFilled size={24} /> : <IconSettings size={24} />,
   },
 ];
