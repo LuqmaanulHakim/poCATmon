@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Map, { Marker } from "react-map-gl/maplibre";
+import Map, { Marker, Popup } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { onSnapshot, collection } from "firebase/firestore";
 import { useTheme } from "../context/ThemeContext";
+import { getFirebaseDb } from "../lib/firebase";
+import type { CatSighting } from "../lib/sightings";
 
 const lightStyle =
   "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
@@ -12,6 +15,32 @@ const darkStyle =
   "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
 const STORAGE_KEY = "lastMapState";
+
+// ─── Cat pin ──────────────────────────────────────────────────────────────────
+function CatPin() {
+  return (
+    <div
+      className="cursor-pointer transition-transform duration-150 hover:scale-110"
+      style={{ transform: "translateY(-6px)" }}
+    >
+      <svg width="34" height="42" viewBox="0 0 34 42" fill="none">
+        <path
+          d="M17 1C8.16 1 1 8.16 1 17c0 11 16 23 16 23s16-12 16-23C33 8.16 25.84 1 17 1z"
+          fill="var(--accent)"
+          stroke="var(--background)"
+          strokeWidth="2"
+        />
+        {/* paw print */}
+        <g fill="var(--background)">
+          <circle cx="11.5" cy="14" r="2.1" />
+          <circle cx="17" cy="11.5" r="2.3" />
+          <circle cx="22.5" cy="14" r="2.1" />
+          <ellipse cx="17" cy="19.5" rx="5.2" ry="4.4" />
+        </g>
+      </svg>
+    </div>
+  );
+}
 
 export default function MapPage() {
   const { darkMode } = useTheme();
@@ -32,6 +61,26 @@ export default function MapPage() {
   } | null>(null);
 
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // ── Cat sightings ────────────────────────────────────────────────────────────
+  const [sightings, setSightings] = useState<CatSighting[]>([]);
+  const [selectedSighting, setSelectedSighting] = useState<CatSighting | null>(null);
+
+  useEffect(() => {
+    const db = getFirebaseDb();
+    const unsubscribe = onSnapshot(
+      collection(db, "sightings"),
+      (snapshot) => {
+        const next = snapshot.docs.map((d) => d.data() as CatSighting);
+        setSightings(next);
+      },
+      (error) => {
+        console.error("Failed to listen for sightings:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   // Save map state
   const saveMapState = (state: {
@@ -148,6 +197,17 @@ export default function MapPage() {
 
   return (
     <div className="relative w-screen h-screen">
+      <style>{`
+        .cat-sighting-popup .maplibregl-popup-content {
+          background: transparent;
+          padding: 0;
+          box-shadow: none;
+        }
+        .cat-sighting-popup .maplibregl-popup-tip {
+          display: none;
+        }
+      `}</style>
+
       <Map
         ref={mapRef}
         {...viewState}
@@ -163,6 +223,7 @@ export default function MapPage() {
         mapStyle={darkMode ? darkStyle : lightStyle}
         style={{ width: "100%", height: "100%" }}
         attributionControl={false}
+        onClick={() => setSelectedSighting(null)}
       >
         {userLocation && (
           <Marker
@@ -174,6 +235,93 @@ export default function MapPage() {
               <span className="relative inline-flex h-3 w-3 rounded-full bg-blue-500 border-2 border-white shadow" />
             </div>
           </Marker>
+        )}
+
+        {sightings.map((sighting) => (
+          <Marker
+            key={sighting.id}
+            latitude={sighting.latitude}
+            longitude={sighting.longitude}
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              setSelectedSighting((current) =>
+                current?.id === sighting.id ? null : sighting
+              );
+            }}
+          >
+            <CatPin />
+          </Marker>
+        ))}
+
+        {selectedSighting && (
+          <Popup
+            latitude={selectedSighting.latitude}
+            longitude={selectedSighting.longitude}
+            closeButton={false}
+            offset={28}
+            anchor="bottom"
+            className="cat-sighting-popup"
+          >
+            <div
+              style={{
+                width: 168,
+                padding: 10,
+                borderRadius: 10,
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+              }}
+            >
+              <div
+                style={{
+                  borderRadius: 6,
+                  overflow: "hidden",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <img
+                  src={selectedSighting.imageData}
+                  alt="Cat sighting"
+                  style={{
+                    width: "100%",
+                    height: 132,
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  marginTop: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "var(--muted)",
+                    fontWeight: 600,
+                  }}
+                >
+                  Sighting
+                </span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "var(--accent)",
+                  }}
+                >
+                  {Math.round(selectedSighting.confidence * 100)}%
+                </span>
+              </div>
+            </div>
+          </Popup>
         )}
       </Map>
 

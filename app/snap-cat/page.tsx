@@ -2,8 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { predictImage } from "../lib/teachable";
+import { saveCatSighting, getCurrentPosition } from "../lib/sightings";
 
-type AppState = "live" | "snapped" | "scanning" | "result-cat" | "result-notcat" | "error" | "no-camera";
+type AppState =
+  | "live"
+  | "snapped"
+  | "scanning"
+  | "result-cat"
+  | "result-notcat"
+  | "error"
+  | "no-camera";
+
+// "pinning" / "pinned" / "pin-error" are tracked separately from AppState
+// because they layer on top of the "result-cat" state rather than replacing it.
+type PinState = "idle" | "pinning" | "pinned" | "pin-error";
 
 // ─── Corner brackets ──────────────────────────────────────────────────────────
 function CornerBrackets() {
@@ -31,7 +43,7 @@ function CornerBrackets() {
 }
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
-type BadgeVariant = "cat" | "notcat" | "scanning" | "error";
+type BadgeVariant = "cat" | "notcat" | "scanning" | "error" | "pinned";
 
 const BADGE_CONFIGS: Record<BadgeVariant, { bg: string; color: string; border: string; label: string }> = {
   cat:      { bg: "rgba(34,197,94,0.15)",   color: "#166534", border: "rgba(34,197,94,0.35)",    label: "Cat verified" },
@@ -39,6 +51,7 @@ const BADGE_CONFIGS: Record<BadgeVariant, { bg: string; color: string; border: s
   scanning: { bg: "color-mix(in srgb, var(--accent) 12%, transparent)",
               color: "var(--accent)",        border: "color-mix(in srgb, var(--accent) 35%, transparent)", label: "Scanning…"    },
   error:    { bg: "rgba(239,68,68,0.12)",   color: "#b91c1c", border: "rgba(239,68,68,0.35)",    label: "Scan failed"  },
+  pinned:   { bg: "rgba(34,197,94,0.15)",   color: "#166534", border: "rgba(34,197,94,0.35)",    label: "Pinned to map" },
 };
 
 function Badge({ variant }: { variant: BadgeVariant }) {
@@ -124,7 +137,6 @@ function PrimaryButton({ label, onClick, disabled }: { label: string; onClick: (
 }
 
 // ─── Mode label (replaces the nav mode slot) ──────────────────────────────────
-// Rendered inside the page body so Toolbar can stay pure layout.
 function ModeLabel({ label }: { label: string }) {
   return (
     <div style={{
@@ -150,6 +162,10 @@ export default function SnapCatPage() {
   const [imageSize,  setImageSize]  = useState<string | null>(null);
   const [streaming,  setStreaming]  = useState(false);
   const [ zoom, setZoom ] = useState(1);
+
+  // ── Pin-to-map state ─────────────────────────────────────────────────────────
+  const [pinState, setPinState] = useState<PinState>("idle");
+  const [pinError, setPinError] = useState<string | null>(null);
 
   // ── Camera helpers ──────────────────────────────────────────────────────────
   const startCamera = async () => {
@@ -340,7 +356,40 @@ export default function SnapCatPage() {
 
   const retake = () => {
     setPhoto(null); setConfidence(null); setImageSize(null);
+    setPinState("idle"); setPinError(null);
     setAppState("live"); startCamera();
+  };
+
+  // Requests geolocation, then saves the confirmed sighting to Firebase.
+  // Geolocation and the DB write can each fail independently, so both
+  // are wrapped and reported through the same pinError state.
+  const pinToMap = async () => {
+    if (!photo || confidence === null) return;
+
+    setPinState("pinning");
+    setPinError(null);
+
+    try {
+      const position = await getCurrentPosition();
+
+      await saveCatSighting({
+        imageData: photo,
+        confidence,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy ?? null,
+      });
+
+      setPinState("pinned");
+    } catch (err: any) {
+      console.error(err);
+      const message =
+        err?.code === 1 // GeolocationPositionError.PERMISSION_DENIED
+          ? "Location permission denied"
+          : err?.message || "Couldn't pin to map";
+      setPinError(message);
+      setPinState("pin-error");
+    }
   };
 
   // ── Derived state ────────────────────────────────────────────────────────────
@@ -350,16 +399,51 @@ export default function SnapCatPage() {
   const isScanning = appState === "scanning";
   const isError    = appState === "error";
 
-  const badgeVariant = isScanning ? "scanning" : isCat ? "cat" : isNotCat ? "notcat" : isError ? "error" : null;
-  const checkLabel   = isScanning ? "Scanning…" : isCat ? "Pin to map →" : isError ? "Try again" : "Check for cat";
-  const hint = isLive         ? "tap to snap"
-    : appState === "snapped"  ? "looks good? run the scan"
-    : isScanning              ? "AI is reviewing your photo"
-    : isCat                   ? "cat confirmed — add it to the map"
-    : isNotCat                ? "no cat detected — try another shot"
-    : isError                 ? "something went wrong" : "";
-  const modeLabel = isLive ? "CAMERA" : isScanning ? "SCANNING" : isCat ? "VERIFIED"
-    : isNotCat ? "NO CAT" : isError ? "ERROR" : "REVIEW";
+  const isPinning = pinState === "pinning";
+  const isPinned  = pinState === "pinned";
+  const isPinErr  = pinState === "pin-error";
+
+  const badgeVariant: BadgeVariant | null =
+    isScanning ? "scanning"
+    : isPinned  ? "pinned"
+    : isCat     ? "cat"
+    : isNotCat  ? "notcat"
+    : isError   ? "error"
+    : null;
+
+  const checkLabel =
+    isScanning ? "Scanning…"
+    : isPinning ? "Pinning…"
+    : isPinned  ? "Pinned ✓"
+    : isPinErr  ? "Retry pin"
+    : isCat     ? "Pin to map →"
+    : isError   ? "Try again"
+    : "Check for cat";
+
+  const hint =
+    isLive          ? "tap to snap"
+    : appState === "snapped" ? "looks good? run the scan"
+    : isScanning     ? "AI is reviewing your photo"
+    : isPinning      ? "getting your location…"
+    : isPinned       ? "saved — visible on the map now"
+    : isPinErr       ? pinError ?? "couldn't save, try again"
+    : isCat          ? "cat confirmed — add it to the map"
+    : isNotCat       ? "no cat detected — try another shot"
+    : isError        ? "something went wrong" : "";
+
+  const modeLabel =
+    isLive ? "CAMERA"
+    : isScanning ? "SCANNING"
+    : isPinned ? "PINNED"
+    : isCat ? "VERIFIED"
+    : isNotCat ? "NO CAT"
+    : isError ? "ERROR" : "REVIEW";
+
+  const handlePrimaryClick = () => {
+    if (isCat || isPinErr) pinToMap();
+    else if (isError || isNotCat) retake();
+    else checkPhoto();
+  };
 
   return (
     <>
@@ -417,8 +501,8 @@ export default function SnapCatPage() {
           )}
 
           <CornerBrackets />
-          
-          {badgeVariant && <Badge variant={badgeVariant as BadgeVariant} />}
+
+          {badgeVariant && <Badge variant={badgeVariant} />}
 
           {(isCat || isNotCat || appState === "snapped") && imageSize && (
             <div style={{
@@ -442,7 +526,7 @@ export default function SnapCatPage() {
         }}>
           {/* Left slot — retake (only visible when not live) */}
           <div style={{ width: 80 }}>
-            <GhostButton label="Retake" onClick={retake} visible={!isLive} />
+            <GhostButton label="Retake" onClick={retake} visible={!isLive && !isPinned} />
           </div>
 
           {/* Centre — shutter */}
@@ -471,11 +555,19 @@ export default function SnapCatPage() {
         </div>
 
         {/* ── Primary action ── */}
-        {!isLive && (
+        {!isLive && !isPinned && (
           <PrimaryButton
             label={checkLabel}
-            onClick={isCat ? () => alert("Pin to map!") : isError || isNotCat ? retake : checkPhoto}
-            disabled={isScanning}
+            onClick={handlePrimaryClick}
+            disabled={isScanning || isPinning}
+          />
+        )}
+
+        {isPinned && (
+          <PrimaryButton
+            label="Snap another cat →"
+            onClick={retake}
+            disabled={false}
           />
         )}
 
