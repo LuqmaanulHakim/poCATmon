@@ -149,17 +149,63 @@ export default function SnapCatPage() {
   const [confidence, setConfidence] = useState<number | null>(null);
   const [imageSize,  setImageSize]  = useState<string | null>(null);
   const [streaming,  setStreaming]  = useState(false);
+  const [ zoom, setZoom ] = useState(2);
 
   // ── Camera helpers ──────────────────────────────────────────────────────────
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+
+          // prevent huge camera frames
+          width: { ideal: 1280 },
+          height: { ideal: 1280 },
+
+          frameRate: { ideal: 30, max: 30 },
+        },
+        audio: false,
+      });
+
       streamRef.current = stream;
+
+      // Apply zoom if supported
+      const track = stream.getVideoTracks()[0];
+
+      try {
+        const capabilities =
+          track.getCapabilities?.() as MediaTrackCapabilities & {
+            zoom?: { min: number; max: number };
+          };
+
+        if (capabilities?.zoom) {
+          await track.applyConstraints({
+            advanced: [
+              {
+                zoom: Math.min(
+                  zoom,
+                  capabilities.zoom.max
+                ),
+              },
+            ],
+          } as any);
+        }
+      } catch {
+        // ignore unsupported zoom
+      }
+
       const video = videoRef.current;
+
       if (!video) return;
+
       video.srcObject = stream;
-      await new Promise<void>(resolve => { video.onloadedmetadata = () => resolve(); });
+
+      await new Promise<void>((resolve) => {
+        video.onloadedmetadata = () => resolve();
+      });
+
       await video.play();
+
       setStreaming(true);
     } catch {
       setAppState("no-camera");
@@ -177,19 +223,60 @@ export default function SnapCatPage() {
 
   // ── Actions ─────────────────────────────────────────────────────────────────
   const takePhoto = () => {
-    const video = videoRef.current, canvas = canvasRef.current;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
     if (!video || !canvas) return;
+
     const ctx = canvas.getContext("2d");
+
     if (!ctx) return;
-    canvas.width  = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    const kb = atob(dataUrl.split(",")[1]).length / 1024;
+
+    // limit exported size
+    const MAX = 1080;
+
+    const ratio =
+      Math.min(
+        MAX / video.videoWidth,
+        MAX / video.videoHeight,
+        1
+      );
+
+    canvas.width = Math.floor(video.videoWidth * ratio);
+    canvas.height = Math.floor(video.videoHeight * ratio);
+
+    ctx.drawImage(
+      video,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    // smaller file
+    const dataUrl =
+      canvas.toDataURL(
+        "image/jpeg",
+        0.75
+      );
+
+    const sizeKB =
+      Math.round(
+        (dataUrl.length * 0.75) / 1024
+      );
+
     setPhoto(dataUrl);
-    setImageSize(kb >= 1024 ? `${(kb / 1024).toFixed(2)} MB` : `${kb.toFixed(0)} KB`);
-    setAppState("snapped");
+
+    setImageSize(
+      sizeKB >= 1024
+        ? `${(sizeKB / 1024).toFixed(2)} MB`
+        : `${sizeKB} KB`
+    );
+
     setConfidence(null);
+
+    setAppState("snapped");
+
     stopCamera();
   };
 
