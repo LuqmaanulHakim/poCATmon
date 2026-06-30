@@ -417,48 +417,7 @@ export default function SnapCatPage() {
           )}
 
           <CornerBrackets />
-
-          {isLive && (
-            <button
-              onClick={() =>
-                applyZoom(
-                  zoom === 1
-                    ? 2
-                    : 1
-                )
-              }
-              style={{
-                position: "absolute",
-                bottom: 14,
-                right: 14,
-
-                width: 46,
-                height: 46,
-
-                borderRadius: "50%",
-
-                background:
-                  "rgba(0,0,0,0.45)",
-
-                border:
-                  "1px solid rgba(255,255,255,.18)",
-
-                color: "#fff",
-
-                fontSize: 14,
-                fontWeight: 700,
-
-                cursor: "pointer",
-
-                backdropFilter:
-                  "blur(12px)",
-
-                zIndex: 20,
-              }}
-            >
-              {zoom}×
-            </button>
-          )}
+          
           {badgeVariant && <Badge variant={badgeVariant as BadgeVariant} />}
 
           {(isCat || isNotCat || appState === "snapped") && imageSize && (
@@ -481,9 +440,34 @@ export default function SnapCatPage() {
           display: "flex", alignItems: "center", justifyContent: "space-between",
           width: "100%", maxWidth: 340, padding: "0 4px",
         }}>
-          <div style={{ width: 80 }} />
+          {/* Left slot — retake (only visible when not live) */}
+          <div style={{ width: 80 }}>
+            <GhostButton label="Retake" onClick={retake} visible={!isLive} />
+          </div>
+
+          {/* Centre — shutter */}
           <ShutterButton onClick={takePhoto} disabled={!isLive || !streaming} />
-          <GhostButton label="Retake" onClick={retake} visible={!isLive} />
+
+          {/* Right slot — zoom (only visible when live) */}
+          <div style={{ width: 80, display: "flex", alignItems: "center", justifyContent: "flex-start", paddingLeft: 16 }}>
+            {isLive && (
+              <button
+                onClick={() => applyZoom(zoom === 1 ? 2 : 1)}
+                style={{
+                  width: 46, height: 46,
+                  borderRadius: "50%",
+                  background: "rgba(0,0,0,0.45)",
+                  border: "1px solid rgba(255,255,255,.18)",
+                  color: "#fff",
+                  fontSize: 14, fontWeight: 700,
+                  cursor: "pointer",
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                {zoom}×
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── Primary action ── */}
