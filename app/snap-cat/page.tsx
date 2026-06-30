@@ -149,50 +149,42 @@ export default function SnapCatPage() {
   const [confidence, setConfidence] = useState<number | null>(null);
   const [imageSize,  setImageSize]  = useState<string | null>(null);
   const [streaming,  setStreaming]  = useState(false);
-  const [ zoom, setZoom ] = useState(2);
+  const [ zoom, setZoom ] = useState(1);
 
   // ── Camera helpers ──────────────────────────────────────────────────────────
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
+      // stop previous stream first
+      stopCamera();
 
-          // prevent huge camera frames
-          width: { ideal: 1280 },
-          height: { ideal: 1280 },
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: {
+              ideal: "environment",
+            },
 
-          frameRate: { ideal: 30, max: 30 },
-        },
-        audio: false,
-      });
+            // reduce memory usage
+            width: {
+              ideal: 1280,
+              max: 1920,
+            },
+
+            height: {
+              ideal: 1280,
+              max: 1920,
+            },
+
+            frameRate: {
+              ideal: 30,
+              max: 30,
+            },
+          },
+
+          audio: false,
+        });
 
       streamRef.current = stream;
-
-      // Apply zoom if supported
-      const track = stream.getVideoTracks()[0];
-
-      try {
-        const capabilities =
-          track.getCapabilities?.() as MediaTrackCapabilities & {
-            zoom?: { min: number; max: number };
-          };
-
-        if (capabilities?.zoom) {
-          await track.applyConstraints({
-            advanced: [
-              {
-                zoom: Math.min(
-                  zoom,
-                  capabilities.zoom.max
-                ),
-              },
-            ],
-          } as any);
-        }
-      } catch {
-        // ignore unsupported zoom
-      }
 
       const video = videoRef.current;
 
@@ -201,13 +193,29 @@ export default function SnapCatPage() {
       video.srcObject = stream;
 
       await new Promise<void>((resolve) => {
-        video.onloadedmetadata = () => resolve();
+        video.onloadedmetadata = () => {
+          resolve();
+        };
       });
 
       await video.play();
 
       setStreaming(true);
-    } catch {
+
+      // restore previous zoom
+      if (zoom > 1) {
+        try {
+          await applyZoom(zoom);
+        } catch {
+          // ignore unsupported zoom
+        }
+      }
+
+    } catch (error) {
+      console.error(error);
+
+      setStreaming(false);
+
       setAppState("no-camera");
     }
   };
@@ -217,6 +225,39 @@ export default function SnapCatPage() {
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     setStreaming(false);
+  };
+
+  const applyZoom = async (value: number) => {
+    try {
+      const track = streamRef.current?.getVideoTracks()[0];
+
+      if (!track) return;
+
+      const capabilities =
+        track.getCapabilities?.() as MediaTrackCapabilities & {
+          zoom?: {
+            min: number;
+            max: number;
+          };
+        };
+
+      if (!capabilities?.zoom) return;
+
+      await track.applyConstraints({
+        advanced: [
+          {
+            zoom: Math.min(
+              Math.max(value, capabilities.zoom.min),
+              capabilities.zoom.max
+            ),
+          },
+        ],
+      } as any);
+
+      setZoom(value);
+    } catch {
+      console.log("Zoom unsupported");
+    }
   };
 
   useEffect(() => { startCamera(); return stopCamera; }, []);
@@ -376,6 +417,48 @@ export default function SnapCatPage() {
           )}
 
           <CornerBrackets />
+
+          {isLive && (
+            <button
+              onClick={() =>
+                applyZoom(
+                  zoom === 1
+                    ? 2
+                    : 1
+                )
+              }
+              style={{
+                position: "absolute",
+                bottom: 14,
+                right: 14,
+
+                width: 46,
+                height: 46,
+
+                borderRadius: "50%",
+
+                background:
+                  "rgba(0,0,0,0.45)",
+
+                border:
+                  "1px solid rgba(255,255,255,.18)",
+
+                color: "#fff",
+
+                fontSize: 14,
+                fontWeight: 700,
+
+                cursor: "pointer",
+
+                backdropFilter:
+                  "blur(12px)",
+
+                zIndex: 20,
+              }}
+            >
+              {zoom}×
+            </button>
+          )}
           {badgeVariant && <Badge variant={badgeVariant as BadgeVariant} />}
 
           {(isCat || isNotCat || appState === "snapped") && imageSize && (
