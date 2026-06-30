@@ -1,6 +1,6 @@
 import * as tmImage from "@teachablemachine/image";
 
-const MODEL_URL = "https://teachablemachine.withgoogle.com/models/KYhzmTMgs/";
+const MODEL_URL = process.env.NEXT_PUBLIC_TEACHABLE_MODEL_URL_LATEST;
 
 let model: Awaited<ReturnType<typeof tmImage.load>> | undefined;
 
