@@ -347,8 +347,15 @@ export default function SnapCatPage() {
       await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = () => reject(); });
       const predictions = await predictImage(img);
       const best = predictions.reduce((a: any, b: any) => a.probability > b.probability ? a : b);
-      if (best.className === "Cat") { setConfidence(best.probability); setAppState("result-cat"); }
-      else setAppState("result-notcat");
+
+      const CAT_THRESHOLD = 0.75;
+
+      if (best.className === "Cat" && best.probability >= CAT_THRESHOLD) {
+        setConfidence(best.probability);
+        setAppState("result-cat");
+      } else {
+        setAppState("result-notcat");
+      }
     } catch {
       setAppState("error");
     }
