@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { predictImage } from "../lib/teachable";
 import { saveCatSighting, getCurrentPosition } from "../lib/sightings";
+import ConsentModal from "../components/ConsentModal";
 
 type AppState =
   | "live"
@@ -162,6 +163,7 @@ export default function SnapCatPage() {
   const [imageSize,  setImageSize]  = useState<string | null>(null);
   const [streaming,  setStreaming]  = useState(false);
   const [ zoom, setZoom ] = useState(1);
+  const [showConsent, setShowConsent] = useState(false);
 
   // ── Pin-to-map state ─────────────────────────────────────────────────────────
   const [pinState, setPinState] = useState<PinState>("idle");
@@ -440,9 +442,18 @@ export default function SnapCatPage() {
     : isError ? "ERROR" : "REVIEW";
 
   const handlePrimaryClick = () => {
-    if (isCat || isPinErr) pinToMap();
+    if (isCat || isPinErr) setShowConsent(true);
     else if (isError || isNotCat) retake();
     else checkPhoto();
+  };
+
+  const handleConsentConfirm = () => {
+    setShowConsent(false);
+    pinToMap();
+  };
+
+  const handleConsentCancel = () => {
+    setShowConsent(false);
   };
 
   return (
@@ -519,6 +530,13 @@ export default function SnapCatPage() {
           )}
         </div>
 
+        <span style={{
+            fontSize: 10.5, color: "var(--muted)", opacity: 0.7,
+            letterSpacing: "0.02em", textAlign: "center", maxWidth: 300, lineHeight: 1.4,
+          }}>
+            AI detection is still learning and may misidentify cats — please double-check the photo yourself.
+        </span>
+
         {/* ── Controls row ── */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -577,6 +595,13 @@ export default function SnapCatPage() {
         </span>
 
         <canvas ref={canvasRef} style={{ display: "none" }} />
+
+        <ConsentModal
+          open={showConsent}
+          imagePreview={photo}
+          onConfirm={handleConsentConfirm}
+          onCancel={handleConsentCancel}
+        />
       </div>
     </>
   );
